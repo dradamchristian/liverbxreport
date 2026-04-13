@@ -9,9 +9,19 @@ export const handler: Handler = async (event) => {
     },
     body:JSON.stringify({
       model:"gpt-4o-mini",
-      messages:[{role:"user",content:prompt}]
+      temperature: 0.2,
+      messages:[
+        {
+          role:"system",
+          content:"You are an expert liver pathologist writing safe, professional medical reports. Do not fabricate findings or advice beyond provided facts."
+        },
+        {role:"user",content:prompt}
+      ]
     })
   })
   const data = await res.json()
-  return { statusCode:200, body: JSON.stringify({ report: data.choices[0].message.content }) }
+  if (!res.ok) {
+    return { statusCode: res.status, body: JSON.stringify({ error: data?.error?.message || "LLM request failed." }) }
+  }
+  return { statusCode:200, body: JSON.stringify({ report: data.choices?.[0]?.message?.content || "No report generated." }) }
 };

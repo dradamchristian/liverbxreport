@@ -16,6 +16,7 @@ export default function App() {
   const [cores, setCores] = useState('')
   const [portalTracts, setPortalTracts] = useState('')
   const [comparison, setComparison] = useState('')
+  const [useHistoryForConclusion, setUseHistoryForConclusion] = useState(true)
 
   const [fibrosisCategory, setFibrosisCategory] = useState<FibrosisCategory>('No fibrosis / equivocal')
   const [fibrosisStage, setFibrosisStage] = useState('Ishak 2/6, METAVIR F2')
@@ -49,9 +50,39 @@ export default function App() {
     return `Liver Core Biopsy (non-lesional assessment)\n\nClinical & Specimen\n- Clinical history / indication: ${clinicalHistory || 'Not provided.'}\n- Number of cores: ${cores || 'Not provided'}\n- Number of portal tracts: ${portalTracts || 'Not provided'}\n- Comparison with previous biopsy: ${comparison || 'Not provided.'}\n\nArchitecture & Fibrosis\n- Category: ${fibrosisCategory}\n- Stage: ${fibrosisStage || 'Not specified'}\n- Reticulin architecture: ${reticulinArchitecture || 'Not provided.'}\n- Van Gieson / fibrosis note: ${vanGiesonNote || 'Not provided.'}\n\nPortal & Lobular Features\n- Portal inflammation: ${portalInflammation}\n- Interface hepatitis: ${interfaceHepatitis}\n- Lobular injury: ${lobularInjury}\n- Cholestasis: ${cholestasis}\n- Steatosis grade: ${steatosisGrade}\n- Steatosis %: ${steatosisPercent || 'Not specified'}\n- Ballooning (NAS): ${ballooning}\n- Lobular inflammation (NAS): ${lobularInflammationNas}\n- Biliary features: ${biliaryFeatures || 'None stated'}\n- Vascular features: ${vascularFeatures || 'None stated'}\n\nSpecial stains (comments only)\n- A1AT: ${a1atComment || 'Not provided.'}\n- Copper (Victoria Blue): ${copperComment || 'Not provided.'}\n- Iron (Perls): ${ironComment || 'Not provided.'}\n- Reticulin: ${reticulinComment || 'Not provided.'}\n- Van Gieson / fibrosis: ${fibrosisComment || 'Not provided.'}\n\nConclusion / Comment\n- Interpretation: ${interpretation || 'Not provided.'}\n- Single-line summary: ${singleLineSummary || 'Not provided.'}`
   }
 
+  function buildPrompt() {
+    const historyInstruction = useHistoryForConclusion
+      ? 'Use the provided clinical history and prior-biopsy comparison (if present) to contextualise the final conclusion and comment.'
+      : 'Do not infer from clinical history or prior-biopsy comparison; base the conclusion only on current biopsy morphology and stains.'
+
+    return `You are a consultant hepatic pathologist.
+
+Rewrite the draft into a polished, descriptive report in full sentences (plain text, no markdown), while preserving all factual detail and uncertainty.
+
+Output structure:
+1) Clinical & Specimen
+2) Architecture & Fibrosis
+3) Portal & Lobular Features
+4) Special stains
+5) Conclusion
+6) Comment
+7) Key points (3 concise bullets)
+
+Rules:
+- Keep the report clinically safe: do not invent findings, grades, or patient data.
+- Explicitly state when information is not provided.
+- Keep wording professional and concise, but more narrative than a checklist.
+- In "Conclusion", provide an integrated diagnostic-style summary.
+- In "Comment", provide short correlation advice and, if appropriate, progression/stability context.
+- ${historyInstruction}
+
+Draft source data:
+${buildDraft()}`
+  }
+
   async function generateReport() {
     setBusy(true)
-    const prompt = `You are a consultant hepatic pathologist. Rewrite this into a clear and professional liver biopsy report (plain text, no markdown), preserving all factual detail and uncertainty. Keep headings for Clinical & Specimen, Architecture & Fibrosis, Portal & Lobular Features, Special stains, and Conclusion.\n\n${buildDraft()}`
+    const prompt = buildPrompt()
 
     try {
       const res = await fetch('/api/report', {
@@ -60,7 +91,11 @@ export default function App() {
         body: JSON.stringify({ prompt })
       })
       const data = await res.json()
-      setReport(data?.report ?? 'No response from report service.')
+      if (!res.ok) {
+        setReport(`Report service error: ${data?.error ?? 'Unknown error'}`)
+      } else {
+        setReport(data?.report ?? 'No response from report service.')
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       setReport(`Error generating report: ${message}`)
@@ -97,6 +132,14 @@ export default function App() {
           <label className="span-3">
             Comparison with previous biopsy (optional)
             <textarea rows={2} placeholder="Compared with 2022 biopsy: stable activity; fibrosis progressed by one stage." value={comparison} onChange={(e) => setComparison(e.target.value)} />
+          </label>
+          <label className="span-3 checkbox-row">
+            <input
+              type="checkbox"
+              checked={useHistoryForConclusion}
+              onChange={(e) => setUseHistoryForConclusion(e.target.checked)}
+            />
+            Use clinical history and comparison details to help shape Conclusion/Comment
           </label>
         </div>
       </section>
