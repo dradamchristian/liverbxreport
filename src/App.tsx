@@ -1,52 +1,57 @@
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import './styles.css'
 
-type FibrosisStage = 'F0' | 'F1' | 'F2' | 'F3' | 'F4'
-type SteatosisGrade = 'None (<5%)' | 'Mild (5-33%)' | 'Moderate (34-66%)' | 'Severe (>66%)'
-type Inflammation = 'None' | 'Mild' | 'Moderate' | 'Marked'
-type InjuryPattern = 'None identified' | 'Hepatitis pattern' | 'Steatohepatitis pattern' | 'Cholestatic pattern' | 'Biliary injury pattern'
+type FibrosisCategory =
+  | 'No fibrosis / equivocal'
+  | 'Portal fibrosis only'
+  | 'Portal + periportal fibrosis'
+  | 'Bridging fibrosis'
+  | 'Cirrhosis'
 
-const fibrosisDescriptions: Record<FibrosisStage, string> = {
-  F0: 'No fibrosis (F0).',
-  F1: 'Portal fibrosis without septa (F1).',
-  F2: 'Portal fibrosis with few septa (F2).',
-  F3: 'Numerous septa without established cirrhosis (F3).',
-  F4: 'Established cirrhosis (F4).'
-}
+type Severity = 'None' | 'Mild' | 'Moderate' | 'Marked'
+type Presence = 'Absent' | 'Present'
 
 export default function App() {
+  const [clinicalHistory, setClinicalHistory] = useState('')
   const [cores, setCores] = useState('2')
   const [portalTracts, setPortalTracts] = useState('12')
-  const [clinicalDetails, setClinicalDetails] = useState('')
-  const [stainSet, setStainSet] = useState('H&E, reticulin, trichrome, PASD, Perls')
+  const [comparison, setComparison] = useState('')
 
-  const [fibrosis, setFibrosis] = useState<FibrosisStage>('F0')
-  const [steatosis, setSteatosis] = useState<SteatosisGrade>('None (<5%)')
-  const [portalInflammation, setPortalInflammation] = useState<Inflammation>('None')
-  const [lobularInflammation, setLobularInflammation] = useState<Inflammation>('None')
-  const [ballooning, setBallooning] = useState<Inflammation>('None')
-  const [injuryPattern, setInjuryPattern] = useState<InjuryPattern>('None identified')
-  const [cholestasis, setCholestasis] = useState('No')
-  const [iron, setIron] = useState('No significant iron deposition')
+  const [fibrosisCategory, setFibrosisCategory] = useState<FibrosisCategory>('No fibrosis / equivocal')
+  const [fibrosisStage, setFibrosisStage] = useState('')
+  const [reticulinArchitecture, setReticulinArchitecture] = useState('')
+  const [vanGiesonNote, setVanGiesonNote] = useState('')
+
+  const [portalInflammation, setPortalInflammation] = useState<Severity>('Mild')
+  const [interfaceHepatitis, setInterfaceHepatitis] = useState<Presence>('Absent')
+  const [lobularInjury, setLobularInjury] = useState('None')
+  const [cholestasis, setCholestasis] = useState<Presence>('Absent')
+  const [steatosisGrade, setSteatosisGrade] = useState('None')
+  const [steatosisPercent, setSteatosisPercent] = useState('')
+  const [ballooning, setBallooning] = useState<Presence>('Absent')
+  const [lobularInflammationNas, setLobularInflammationNas] = useState('None')
+  const [biliaryFeatures, setBiliaryFeatures] = useState('')
+  const [vascularFeatures, setVascularFeatures] = useState('')
+
+  const [a1atComment, setA1atComment] = useState('')
+  const [copperComment, setCopperComment] = useState('')
+  const [ironComment, setIronComment] = useState('')
+  const [reticulinComment, setReticulinComment] = useState('')
+  const [fibrosisComment, setFibrosisComment] = useState('')
+
+  const [interpretation, setInterpretation] = useState('')
+  const [singleLineSummary, setSingleLineSummary] = useState('')
 
   const [report, setReport] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const adequacy = useMemo(() => {
-    const portalCount = Number(portalTracts)
-    if (Number.isNaN(portalCount)) return 'Portal tract count not provided.'
-    if (portalCount >= 11) return 'Adequate sample for assessment.'
-    if (portalCount >= 6) return 'Borderline adequacy; interpret with clinical-radiological correlation.'
-    return 'Suboptimal sample; staging/grading may be underestimated.'
-  }, [portalTracts])
-
   function buildDraft() {
-    return `SPECIMEN\nLiver core biopsy (${cores} cores; approximately ${portalTracts} portal tracts).\n\nCLINICAL DETAILS\n${clinicalDetails || 'Not provided.'}\n\nMICROSCOPY\n- Sample adequacy: ${adequacy}\n- Architecture/fibrosis: ${fibrosisDescriptions[fibrosis]}\n- Steatosis: ${steatosis}.\n- Portal inflammation: ${portalInflammation}.\n- Lobular inflammation: ${lobularInflammation}.\n- Hepatocyte ballooning/injury: ${ballooning}.\n- Pattern of injury: ${injuryPattern}.\n- Cholestasis: ${cholestasis}.\n- Iron stain: ${iron}.\n- Ancillary stains performed: ${stainSet}.\n\nCONCLUSION\nPlease generate a structured RCPath-style liver biopsy report with clear headings for: Specimen, Microscopy, and Conclusion. Include a concise diagnostic summary suitable for MDT communication.`
+    return `Liver Core Biopsy (non-lesional assessment)\n\nClinical & Specimen\n- Clinical history / indication: ${clinicalHistory || 'Not provided.'}\n- Number of cores: ${cores || 'Not provided'}\n- Number of portal tracts: ${portalTracts || 'Not provided'}\n- Comparison with previous biopsy: ${comparison || 'Not provided.'}\n\nArchitecture & Fibrosis\n- Category: ${fibrosisCategory}\n- Stage: ${fibrosisStage || 'Not specified'}\n- Reticulin architecture: ${reticulinArchitecture || 'Not provided.'}\n- Van Gieson / fibrosis note: ${vanGiesonNote || 'Not provided.'}\n\nPortal & Lobular Features\n- Portal inflammation: ${portalInflammation}\n- Interface hepatitis: ${interfaceHepatitis}\n- Lobular injury: ${lobularInjury}\n- Cholestasis: ${cholestasis}\n- Steatosis grade: ${steatosisGrade}\n- Steatosis %: ${steatosisPercent || 'Not specified'}\n- Ballooning (NAS): ${ballooning}\n- Lobular inflammation (NAS): ${lobularInflammationNas}\n- Biliary features: ${biliaryFeatures || 'None stated'}\n- Vascular features: ${vascularFeatures || 'None stated'}\n\nSpecial stains (comments only)\n- A1AT: ${a1atComment || 'Not provided.'}\n- Copper (Victoria Blue): ${copperComment || 'Not provided.'}\n- Iron (Perls): ${ironComment || 'Not provided.'}\n- Reticulin: ${reticulinComment || 'Not provided.'}\n- Van Gieson / fibrosis: ${fibrosisComment || 'Not provided.'}\n\nConclusion / Comment\n- Interpretation: ${interpretation || 'Not provided.'}\n- Single-line summary: ${singleLineSummary || 'Not provided.'}`
   }
 
   async function generateReport() {
     setBusy(true)
-    const prompt = `You are a consultant hepatic pathologist in the UK. Rewrite the following draft into a professional RCPath-aligned report in plain text (no markdown), preserving factual content and uncertainty where relevant:\n\n${buildDraft()}`
+    const prompt = `You are a consultant hepatic pathologist. Rewrite this into a clear and professional liver biopsy report (plain text, no markdown), preserving all factual detail and uncertainty. Keep headings for Clinical & Specimen, Architecture & Fibrosis, Portal & Lobular Features, Special stains, and Conclusion.\n\n${buildDraft()}`
 
     try {
       const res = await fetch('/api/report', {
@@ -71,96 +76,173 @@ export default function App() {
   return (
     <main className="page">
       <header className="card">
-        <h1>RCPath Liver Biopsy Report Builder</h1>
-        <p className="subtle">Structured inputs restored with dropdowns and staged histology fields.</p>
+        <h1>Liver Biopsy Report Builder — non-lesional (hybrid)</h1>
       </header>
 
-      <section className="card grid two-col">
-        <label>
-          Number of cores
-          <input value={cores} onChange={(e) => setCores(e.target.value)} />
-        </label>
-        <label>
-          Portal tracts
-          <input value={portalTracts} onChange={(e) => setPortalTracts(e.target.value)} />
-        </label>
-        <label className="span-2">
-          Clinical details
-          <textarea value={clinicalDetails} onChange={(e) => setClinicalDetails(e.target.value)} rows={3} />
-        </label>
-        <label className="span-2">
-          Ancillary stains
-          <input value={stainSet} onChange={(e) => setStainSet(e.target.value)} />
-        </label>
-      </section>
-
-      <section className="card grid two-col">
-        <label>
-          Fibrosis stage
-          <select value={fibrosis} onChange={(e) => setFibrosis(e.target.value as FibrosisStage)}>
-            {(['F0', 'F1', 'F2', 'F3', 'F4'] as FibrosisStage[]).map((v) => <option key={v}>{v}</option>)}
-          </select>
-        </label>
-        <label>
-          Steatosis
-          <select value={steatosis} onChange={(e) => setSteatosis(e.target.value as SteatosisGrade)}>
-            {(['None (<5%)', 'Mild (5-33%)', 'Moderate (34-66%)', 'Severe (>66%)'] as SteatosisGrade[]).map((v) => <option key={v}>{v}</option>)}
-          </select>
-        </label>
-        <label>
-          Portal inflammation
-          <select value={portalInflammation} onChange={(e) => setPortalInflammation(e.target.value as Inflammation)}>
-            {(['None', 'Mild', 'Moderate', 'Marked'] as Inflammation[]).map((v) => <option key={v}>{v}</option>)}
-          </select>
-        </label>
-        <label>
-          Lobular inflammation
-          <select value={lobularInflammation} onChange={(e) => setLobularInflammation(e.target.value as Inflammation)}>
-            {(['None', 'Mild', 'Moderate', 'Marked'] as Inflammation[]).map((v) => <option key={v}>{v}</option>)}
-          </select>
-        </label>
-        <label>
-          Ballooning / injury
-          <select value={ballooning} onChange={(e) => setBallooning(e.target.value as Inflammation)}>
-            {(['None', 'Mild', 'Moderate', 'Marked'] as Inflammation[]).map((v) => <option key={v}>{v}</option>)}
-          </select>
-        </label>
-        <label>
-          Cholestasis
-          <select value={cholestasis} onChange={(e) => setCholestasis(e.target.value)}>
-            <option>No</option>
-            <option>Focal/canalicular</option>
-            <option>Prominent</option>
-          </select>
-        </label>
-        <label>
-          Pattern of injury
-          <select value={injuryPattern} onChange={(e) => setInjuryPattern(e.target.value as InjuryPattern)}>
-            {(['None identified', 'Hepatitis pattern', 'Steatohepatitis pattern', 'Cholestatic pattern', 'Biliary injury pattern'] as InjuryPattern[]).map((v) => <option key={v}>{v}</option>)}
-          </select>
-        </label>
-        <label>
-          Iron stain
-          <select value={iron} onChange={(e) => setIron(e.target.value)}>
-            <option>No significant iron deposition</option>
-            <option>Mild hepatocellular iron</option>
-            <option>Moderate hepatocellular iron</option>
-            <option>Marked hepatocellular iron</option>
-            <option>Kupffer-predominant iron</option>
-          </select>
-        </label>
-      </section>
-
-      <section className="card actions">
-        <button onClick={generateReport} disabled={busy}>{busy ? 'Generating...' : 'Generate RCPath report'}</button>
-        <button onClick={copyReport} disabled={!report}>Copy report</button>
+      <section className="card">
+        <h2>Clinical & Specimen</h2>
+        <div className="grid three-col">
+          <label>
+            Clinical history / indication
+            <textarea rows={4} value={clinicalHistory} onChange={(e) => setClinicalHistory(e.target.value)} />
+          </label>
+          <label>
+            Number of cores
+            <input value={cores} onChange={(e) => setCores(e.target.value)} />
+          </label>
+          <label>
+            Number of portal tracts
+            <input value={portalTracts} onChange={(e) => setPortalTracts(e.target.value)} />
+          </label>
+          <label className="span-3">
+            Comparison with previous biopsy (optional)
+            <textarea rows={2} value={comparison} onChange={(e) => setComparison(e.target.value)} />
+          </label>
+        </div>
       </section>
 
       <section className="card">
-        <label>
-          Generated report
-          <textarea className="report" rows={18} value={report} readOnly />
-        </label>
+        <h2>Architecture & Fibrosis</h2>
+        <div className="grid two-col">
+          <label>
+            Category
+            <select value={fibrosisCategory} onChange={(e) => setFibrosisCategory(e.target.value as FibrosisCategory)}>
+              {(['No fibrosis / equivocal', 'Portal fibrosis only', 'Portal + periportal fibrosis', 'Bridging fibrosis', 'Cirrhosis'] as FibrosisCategory[]).map((v) => <option key={v}>{v}</option>)}
+            </select>
+          </label>
+          <label>
+            Stage (optional)
+            <input placeholder="Ishak 2/6, METAVIR F2" value={fibrosisStage} onChange={(e) => setFibrosisStage(e.target.value)} />
+          </label>
+          <label>
+            Reticulin architecture
+            <textarea rows={3} value={reticulinArchitecture} onChange={(e) => setReticulinArchitecture(e.target.value)} />
+          </label>
+          <label>
+            Van Gieson / fibrosis note
+            <textarea rows={3} value={vanGiesonNote} onChange={(e) => setVanGiesonNote(e.target.value)} />
+          </label>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Portal & Lobular Features</h2>
+        <div className="grid three-col">
+          <label>
+            Portal inflammation
+            <select value={portalInflammation} onChange={(e) => setPortalInflammation(e.target.value as Severity)}>
+              {(['None', 'Mild', 'Moderate', 'Marked'] as Severity[]).map((v) => <option key={v}>{v}</option>)}
+            </select>
+          </label>
+          <label>
+            Interface hepatitis
+            <select value={interfaceHepatitis} onChange={(e) => setInterfaceHepatitis(e.target.value as Presence)}>
+              {(['Absent', 'Present'] as Presence[]).map((v) => <option key={v}>{v}</option>)}
+            </select>
+          </label>
+          <label>
+            Lobular injury
+            <select value={lobularInjury} onChange={(e) => setLobularInjury(e.target.value)}>
+              <option>None</option>
+              <option>Mild</option>
+              <option>Moderate</option>
+              <option>Marked</option>
+            </select>
+          </label>
+          <label>
+            Cholestasis
+            <select value={cholestasis} onChange={(e) => setCholestasis(e.target.value as Presence)}>
+              {(['Absent', 'Present'] as Presence[]).map((v) => <option key={v}>{v}</option>)}
+            </select>
+          </label>
+          <label>
+            Steatosis grade
+            <select value={steatosisGrade} onChange={(e) => setSteatosisGrade(e.target.value)}>
+              <option>None</option>
+              <option>Mild</option>
+              <option>Moderate</option>
+              <option>Severe</option>
+            </select>
+          </label>
+          <label>
+            Steatosis % (optional)
+            <input placeholder="5–10%" value={steatosisPercent} onChange={(e) => setSteatosisPercent(e.target.value)} />
+          </label>
+          <label>
+            Ballooning (NAS)
+            <select value={ballooning} onChange={(e) => setBallooning(e.target.value as Presence)}>
+              {(['Absent', 'Present'] as Presence[]).map((v) => <option key={v}>{v}</option>)}
+            </select>
+          </label>
+          <label>
+            Lobular inflammation (NAS)
+            <select value={lobularInflammationNas} onChange={(e) => setLobularInflammationNas(e.target.value)}>
+              <option>None</option>
+              <option>&lt;2 foci per 20x field</option>
+              <option>2-4 foci per 20x field</option>
+              <option>&gt;4 foci per 20x field</option>
+            </select>
+          </label>
+          <div></div>
+          <label className="span-2">
+            Biliary features (free text)
+            <textarea rows={2} value={biliaryFeatures} onChange={(e) => setBiliaryFeatures(e.target.value)} />
+          </label>
+          <label>
+            Vascular features (free text)
+            <textarea rows={2} value={vascularFeatures} onChange={(e) => setVascularFeatures(e.target.value)} />
+          </label>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Special stains (comments only)</h2>
+        <div className="grid two-col">
+          <label>
+            A1AT
+            <textarea rows={3} value={a1atComment} onChange={(e) => setA1atComment(e.target.value)} />
+          </label>
+          <label>
+            Copper (Victoria Blue)
+            <textarea rows={3} value={copperComment} onChange={(e) => setCopperComment(e.target.value)} />
+          </label>
+          <label>
+            Iron (Perls)
+            <textarea rows={3} value={ironComment} onChange={(e) => setIronComment(e.target.value)} />
+          </label>
+          <label>
+            Reticulin
+            <textarea rows={3} value={reticulinComment} onChange={(e) => setReticulinComment(e.target.value)} />
+          </label>
+          <label className="span-2">
+            Van Gieson / fibrosis
+            <textarea rows={3} value={fibrosisComment} onChange={(e) => setFibrosisComment(e.target.value)} />
+          </label>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Conclusion / Comment</h2>
+        <div className="grid two-col">
+          <label>
+            Interpretation (free text)
+            <textarea rows={3} value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
+          </label>
+          <label>
+            Single-line summary
+            <textarea rows={3} value={singleLineSummary} onChange={(e) => setSingleLineSummary(e.target.value)} />
+          </label>
+        </div>
+      </section>
+
+      <section className="card actions">
+        <button onClick={generateReport} disabled={busy}>{busy ? 'Generating...' : 'Generate LLM report'}</button>
+        <button className="ghost" onClick={copyReport} disabled={!report}>Copy report</button>
+      </section>
+
+      <section className="card">
+        <h2>Report</h2>
+        <textarea className="report" rows={16} value={report} readOnly />
       </section>
     </main>
   )
