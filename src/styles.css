@@ -64,6 +64,16 @@ label {
   font-weight: 600;
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: auto;
+}
+
 input,
 textarea,
 select {
