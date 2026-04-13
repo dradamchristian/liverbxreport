@@ -12,10 +12,10 @@ type Severity = 'None' | 'Mild' | 'Moderate' | 'Marked'
 type Presence = 'Absent' | 'Present'
 
 export default function App() {
-  const [clinicalHistory, setClinicalHistory] = useState('Raised ALP, AMA+/-; query PBC; NAFLD risk factors; abnormal LFTs;')
-  const [cores, setCores] = useState('2')
-  const [portalTracts, setPortalTracts] = useState('12')
-  const [comparison, setComparison] = useState('Compared with 2022 biopsy: stable activity; fibrosis progressed by one stage.')
+  const [clinicalHistory, setClinicalHistory] = useState('')
+  const [cores, setCores] = useState('')
+  const [portalTracts, setPortalTracts] = useState('')
+  const [comparison, setComparison] = useState('')
 
   const [fibrosisCategory, setFibrosisCategory] = useState<FibrosisCategory>('No fibrosis / equivocal')
   const [fibrosisStage, setFibrosisStage] = useState('Ishak 2/6, METAVIR F2')
@@ -27,11 +27,11 @@ export default function App() {
   const [lobularInjury, setLobularInjury] = useState('None')
   const [cholestasis, setCholestasis] = useState<Presence>('Absent')
   const [steatosisGrade, setSteatosisGrade] = useState('None')
-  const [steatosisPercent, setSteatosisPercent] = useState('5-10%')
+  const [steatosisPercent, setSteatosisPercent] = useState('')
   const [ballooning, setBallooning] = useState<Presence>('Absent')
   const [lobularInflammationNas, setLobularInflammationNas] = useState('None')
-  const [biliaryFeatures, setBiliaryFeatures] = useState('Ductular reaction, bile plugs, cholangitis-like changes')
-  const [vascularFeatures, setVascularFeatures] = useState('Central vein congestion/outflow, NRH-like change')
+  const [biliaryFeatures, setBiliaryFeatures] = useState('')
+  const [vascularFeatures, setVascularFeatures] = useState('')
 
   const [a1atComment, setA1atComment] = useState('No cytoplasmic globules suggestive of A1AT accumulation.')
   const [copperComment, setCopperComment] = useState('No convincing copper-binding protein accumulation.')
@@ -39,8 +39,8 @@ export default function App() {
   const [reticulinComment, setReticulinComment] = useState('Reticulin delineates hepatic plates; architecture as above.')
   const [fibrosisComment, setFibrosisComment] = useState('Van Gieson highlights portal/septal fibrosis consistent with category above.')
 
-  const [interpretation, setInterpretation] = useState('In the stated clinical context, the appearances favour …; correlate with …')
-  const [singleLineSummary, setSingleLineSummary] = useState('Chronic hepatitis pattern with mild activity and no advanced fibrosis.')
+  const [interpretation, setInterpretation] = useState('')
+  const [singleLineSummary, setSingleLineSummary] = useState('')
 
   const [report, setReport] = useState('')
   const [busy, setBusy] = useState(false)
@@ -84,19 +84,19 @@ export default function App() {
         <div className="grid three-col">
           <label>
             Clinical history / indication
-            <textarea rows={4} value={clinicalHistory} onChange={(e) => setClinicalHistory(e.target.value)} />
+            <textarea rows={4} placeholder="Raised ALP, AMA+/-; query PBC; NAFLD risk factors; abnormal LFTs;" value={clinicalHistory} onChange={(e) => setClinicalHistory(e.target.value)} />
           </label>
           <label>
             Number of cores
-            <input value={cores} onChange={(e) => setCores(e.target.value)} />
+            <input placeholder="2" value={cores} onChange={(e) => setCores(e.target.value)} />
           </label>
           <label>
             Number of portal tracts
-            <input value={portalTracts} onChange={(e) => setPortalTracts(e.target.value)} />
+            <input placeholder="12" value={portalTracts} onChange={(e) => setPortalTracts(e.target.value)} />
           </label>
           <label className="span-3">
             Comparison with previous biopsy (optional)
-            <textarea rows={2} value={comparison} onChange={(e) => setComparison(e.target.value)} />
+            <textarea rows={2} placeholder="Compared with 2022 biopsy: stable activity; fibrosis progressed by one stage." value={comparison} onChange={(e) => setComparison(e.target.value)} />
           </label>
         </div>
       </section>
@@ -186,11 +186,11 @@ export default function App() {
           <div></div>
           <label className="span-2">
             Biliary features (free text)
-            <textarea rows={2} value={biliaryFeatures} onChange={(e) => setBiliaryFeatures(e.target.value)} />
+            <textarea rows={2} placeholder="Ductular reaction, bile plugs, cholangitis-like changes" value={biliaryFeatures} onChange={(e) => setBiliaryFeatures(e.target.value)} />
           </label>
           <label>
             Vascular features (free text)
-            <textarea rows={2} value={vascularFeatures} onChange={(e) => setVascularFeatures(e.target.value)} />
+            <textarea rows={2} placeholder="Central vein congestion/outflow, NRH-like change" value={vascularFeatures} onChange={(e) => setVascularFeatures(e.target.value)} />
           </label>
         </div>
       </section>
@@ -226,11 +226,11 @@ export default function App() {
         <div className="grid two-col">
           <label>
             Interpretation (free text)
-            <textarea rows={3} value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
+            <textarea rows={3} placeholder="In the stated clinical context, the appearances favour …; correlate with …" value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
           </label>
           <label>
             Single-line summary
-            <textarea rows={3} value={singleLineSummary} onChange={(e) => setSingleLineSummary(e.target.value)} />
+            <textarea rows={3} placeholder="Chronic hepatitis pattern with mild activity and no advanced fibrosis." value={singleLineSummary} onChange={(e) => setSingleLineSummary(e.target.value)} />
           </label>
         </div>
       </section>
