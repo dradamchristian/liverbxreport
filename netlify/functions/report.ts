@@ -1,7 +1,7 @@
 import type { Handler } from "@netlify/functions";
 export const handler: Handler = async (event) => {
   const { prompt } = JSON.parse(event.body || "{}");
-  const model = process.env.OPENAI_MODEL || "gpt-4.1";
+  const model = "gpt-4.1";
   const res = await fetch("https://api.openai.com/v1/chat/completions",{
     method:"POST",
     headers:{
