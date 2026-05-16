@@ -1,4 +1,7 @@
 import type { Handler } from "@netlify/functions";
+
+const OPENAI_MODEL = "gpt-4.1";
+
 export const handler: Handler = async (event) => {
   const { prompt } = JSON.parse(event.body || "{}");
   const res = await fetch("https://api.openai.com/v1/chat/completions",{
@@ -8,7 +11,7 @@ export const handler: Handler = async (event) => {
       "Authorization":"Bearer " + process.env.OPENAI_API_KEY
     },
     body:JSON.stringify({
-      model:"gpt-4o-mini",
+      model: OPENAI_MODEL,
       temperature: 0.2,
       messages:[
         {
@@ -21,7 +24,7 @@ export const handler: Handler = async (event) => {
   })
   const data = await res.json()
   if (!res.ok) {
-    return { statusCode: res.status, body: JSON.stringify({ error: data?.error?.message || "LLM request failed." }) }
+    return { statusCode: res.status, body: JSON.stringify({ error: data?.error?.message || "LLM request failed.", model: OPENAI_MODEL }) }
   }
-  return { statusCode:200, body: JSON.stringify({ report: data.choices?.[0]?.message?.content || "No report generated." }) }
+  return { statusCode:200, body: JSON.stringify({ report: data.choices?.[0]?.message?.content || "No report generated.", model: data?.model || OPENAI_MODEL }) }
 };
