@@ -212,3 +212,16 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.context-output {
+  margin: 0.85rem 0;
+  border-left: 4px solid #93c5fd;
+  background: #eff6ff;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+}
+
+.context-output p {
+  margin: 0;
+  white-space: pre-wrap;
+}

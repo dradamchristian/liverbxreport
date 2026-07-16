@@ -16,7 +16,7 @@ const portalInfiltrateOptions = ['Lymphocyte-rich', 'Plasma cell-rich', 'Neutrop
 const lobularInjuryOptions = ['Spotty necroinflammation', 'Acidophil bodies', 'Confluent necrosis', 'Bridging necrosis', 'Kupffer cell activation', 'Hepatocyte rosettes', 'Viral cytopathic change']
 const biliaryFeatureOptions = ['Duct injury', 'Duct loss', 'Ductular reaction', 'Cholangitis-like activity', 'Bile plugs', 'CK7 periportal/metaplastic hepatocyte pattern']
 const vascularFeatureOptions = ['Central venulitis', 'Sinusoidal dilatation', 'Congestion', 'Endothelialitis', 'Outflow obstruction pattern', 'Nodular regenerative hyperplasia-like change']
-const diagnosticSummaryOptions = ['Appearances favour autoimmune hepatitis, if serology and IgG are supportive.', 'Drug-induced liver injury remains a key differential; correlate with medication and supplement exposure.', 'Viral hepatitis should be excluded with appropriate serology/PCR.', 'Biliary disease is not favoured if CK7 and bile ducts are unremarkable.', 'A vascular/outflow component should be considered if central venous changes persist.', 'Fibrosis stage should be correlated with Van Gieson/reticulin findings and any previous biopsy.']
+type DiagnosticOption = { id: string; text: string }
 
 export default function App() {
   const [clinicalHistory, setClinicalHistory] = useState('')
@@ -48,16 +48,21 @@ export default function App() {
   const [a1atComment, setA1atComment] = useState('No cytoplasmic globules suggestive of A1AT accumulation.')
   const [copperComment, setCopperComment] = useState('No convincing copper-binding protein accumulation.')
   const [ironComment, setIronComment] = useState('Perls: no significant iron deposition.')
-  const [diagnosticSummaries, setDiagnosticSummaries] = useState<string[]>([])
+  const [clinicalContextText, setClinicalContextText] = useState('')
+  const [diagnosticOptions, setDiagnosticOptions] = useState<DiagnosticOption[]>([])
+  const [selectedDiagnosticIds, setSelectedDiagnosticIds] = useState<string[]>([])
 
   const [interpretation, setInterpretation] = useState('')
 
   const [report, setReport] = useState('')
   const [busy, setBusy] = useState(false)
+  const [contextBusy, setContextBusy] = useState(false)
 
   function toggleValue(value: string, values: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])
   }
+
+  const selectedDiagnosticSummaries = diagnosticOptions.filter((option) => selectedDiagnosticIds.includes(option.id)).map((option) => option.text)
 
   const portalTractNumber = Number.parseInt(portalTracts, 10)
   const adequacyComment = Number.isFinite(portalTractNumber)
@@ -73,8 +78,7 @@ export default function App() {
     lobularInjury === 'Marked' ? 'Marked lobular injury: look for confluent/bridging necrosis, acidophil bodies, Kupffer cell activation, endothelialitis, and features supporting acute viral, drug/toxin, or autoimmune hepatitis.' : '',
     cholestasis === 'Present' || biliaryFeatureChecks.length > 0 || /duct|ck7|bile|cholang/i.test(biliaryFeatures) ? 'Biliary/cholestatic clues: assess duct injury/loss, ductular reaction, cholangitis, copper-associated protein, CK7 pattern, and correlation with AMA/MRCP/drug history.' : '',
     vascularFeatureChecks.length > 0 || /central|vein|outflow|congestion/i.test(vascularFeatures) ? 'Vascular clues: review central venulitis, sinusoidal dilatation/congestion, outflow obstruction, nodular regenerative change, and relevant cardiac/vascular history.' : '',
-    steatosisGrade !== 'None' || ballooning === 'Present' ? 'Fatty liver clues: quantify steatosis, ballooning, Mallory-Denk bodies, perisinusoidal fibrosis, and metabolic/alcohol risk factors.' : '',
-    diagnosticSummaries.length > 0 ? `Selected diagnostic summary lines: ${diagnosticSummaries.join(' ')}` : 'Tick suggested diagnoses or conclusion lines below to add them as single-line summaries at the end of the report.'
+    steatosisGrade !== 'None' || ballooning === 'Present' ? 'Fatty liver clues: quantify steatosis, ballooning, Mallory-Denk bodies, perisinusoidal fibrosis, and metabolic/alcohol risk factors.' : ''
   ].filter(Boolean)
 
   function buildDraft() {
@@ -116,7 +120,7 @@ Special stains (comments only)
 
 Conclusion / Comment
 - Free-text conclusion/comment to integrate: ${interpretation || 'Not provided.'}
-- Selected single-line diagnostic summaries to append after the descriptive report: ${diagnosticSummaries.join(' | ') || 'None selected'}`
+- Selected single-line diagnostic summaries to append after the descriptive report: ${selectedDiagnosticSummaries.join(' | ') || 'None selected'}`
   }
 
   function buildPrompt() {
@@ -148,6 +152,67 @@ Draft source data:
 ${buildDraft()}`
   }
 
+  function formatReportWithSelectedSummaries(generatedReport: string) {
+    if (selectedDiagnosticSummaries.length === 0) return generatedReport
+
+    return `${generatedReport.trim()}\n\nSingle-line diagnostic summary\n${selectedDiagnosticSummaries.map((summary) => `- ${summary}`).join('\n')}`
+  }
+
+  function parseClinicalContextResponse(raw: string) {
+    const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim()
+    const jsonStart = cleaned.indexOf('{')
+    const jsonEnd = cleaned.lastIndexOf('}')
+    const jsonText = jsonStart >= 0 && jsonEnd > jsonStart ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned
+
+    try {
+      const parsed = JSON.parse(jsonText) as { context?: string; diagnoses?: string[] }
+      setClinicalContextText(parsed.context || raw)
+      setDiagnosticOptions((parsed.diagnoses || []).map((text, index) => ({ id: `${Date.now()}-${index}`, text })))
+      setSelectedDiagnosticIds([])
+    } catch {
+      setClinicalContextText(raw)
+      setDiagnosticOptions([])
+      setSelectedDiagnosticIds([])
+    }
+  }
+
+  async function generateClinicalContext() {
+    setContextBusy(true)
+    const prompt = `You are a consultant hepatic pathologist helping another pathologist review a non-lesional liver biopsy.
+
+Using the case data below, produce case-specific support for the on-screen clinical context assistant only. Do not write the formal report.
+
+Return strict JSON with two keys:
+- "context": a concise paragraph or two commenting on the pattern, what to look for next, and what clinical/serological correlation would help.
+- "diagnoses": an array of 3 to 6 concise possible diagnoses or single-line diagnostic summary statements that the user may choose to add to the report.
+
+Keep diagnoses conditional and safe where appropriate; do not invent findings.
+
+Case data:
+${buildDraft()}`
+
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setClinicalContextText(`Clinical context service error: ${data?.error ?? 'Unknown error'}`)
+        setDiagnosticOptions([])
+      } else {
+        parseClinicalContextResponse(data?.report ?? 'No clinical context generated.')
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      setClinicalContextText(`Error generating clinical context: ${message}`)
+      setDiagnosticOptions([])
+    } finally {
+      setContextBusy(false)
+    }
+  }
+
   async function generateReport() {
     setBusy(true)
     const prompt = buildPrompt()
@@ -162,7 +227,7 @@ ${buildDraft()}`
       if (!res.ok) {
         setReport(`Report service error: ${data?.error ?? 'Unknown error'}`)
       } else {
-        setReport(data?.report ?? 'No response from report service.')
+        setReport(formatReportWithSelectedSummaries(data?.report ?? 'No response from report service.'))
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
@@ -380,17 +445,23 @@ ${buildDraft()}`
         <p><strong>Prior biopsy comparison:</strong> {comparison || 'No comparison entered.'}</p>
         <p><strong>Adequacy:</strong> {adequacyComment}</p>
         <p className="helper">RCPath tissue pathway guidance says medical liver biopsy reports should include portal tract count; published RCPath audit discussion notes fewer than 11 portal tracts may compromise diagnosis, while at least 6 portal tracts should usually be sufficient.</p>
+        <button className="ghost" onClick={generateClinicalContext} disabled={contextBusy}>{contextBusy ? 'Generating context...' : 'Generate LLM clinical context'}</button>
+        <div className="context-output">
+          <p>{clinicalContextText || 'Generate clinical context to get case-specific comments, review prompts and possible diagnoses from the LLM.'}</p>
+        </div>
         <fieldset className="checkbox-group context-diagnoses">
-          <legend>Suggested diagnoses / single-line summaries to add at the end</legend>
-          {diagnosticSummaryOptions.map((option) => (
-            <label className="checkbox-row compact" key={option}>
-              <input type="checkbox" checked={diagnosticSummaries.includes(option)} onChange={() => toggleValue(option, diagnosticSummaries, setDiagnosticSummaries)} />
-              {option}
+          <legend>LLM-suggested diagnoses / single-line summaries to add to the report</legend>
+          {diagnosticOptions.length === 0 ? (
+            <p className="helper">No generated diagnoses yet.</p>
+          ) : diagnosticOptions.map((option) => (
+            <label className="checkbox-row compact" key={option.id}>
+              <input type="checkbox" checked={selectedDiagnosticIds.includes(option.id)} onChange={() => toggleValue(option.id, selectedDiagnosticIds, setSelectedDiagnosticIds)} />
+              {option.text}
             </label>
           ))}
         </fieldset>
         <ul>
-          {contextPrompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
+          {contextPrompts.length === 0 ? <li>Generate LLM clinical context to see case-specific review prompts.</li> : contextPrompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
         </ul>
       </section>
 
