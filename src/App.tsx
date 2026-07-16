@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import './styles.css'
 
 type FibrosisCategory =
-  | 'No fibrosis / equivocal'
+  | 'No fibrosis'
+  | 'Equivocal for fibrosis'
   | 'Portal fibrosis only'
   | 'Portal + periportal fibrosis'
   | 'Bridging fibrosis'
@@ -18,8 +19,8 @@ export default function App() {
   const [comparison, setComparison] = useState('')
   const [useHistoryForConclusion, setUseHistoryForConclusion] = useState(true)
 
-  const [fibrosisCategory, setFibrosisCategory] = useState<FibrosisCategory>('No fibrosis / equivocal')
-  const [fibrosisStage, setFibrosisStage] = useState('Ishak 2/6, METAVIR F2')
+  const [fibrosisCategory, setFibrosisCategory] = useState<FibrosisCategory>('No fibrosis')
+  const [fibrosisStage, setFibrosisStage] = useState('')
   const [reticulinArchitecture, setReticulinArchitecture] = useState('Preserved hepatic plates and central-portal relationships.')
   const [vanGiesonNote, setVanGiesonNote] = useState('Van Gieson highlights portal/septal fibrosis consistent with category above.')
 
@@ -37,8 +38,7 @@ export default function App() {
   const [a1atComment, setA1atComment] = useState('No cytoplasmic globules suggestive of A1AT accumulation.')
   const [copperComment, setCopperComment] = useState('No convincing copper-binding protein accumulation.')
   const [ironComment, setIronComment] = useState('Perls: no significant iron deposition.')
-  const [reticulinComment, setReticulinComment] = useState('Reticulin delineates hepatic plates; architecture as above.')
-  const [fibrosisComment, setFibrosisComment] = useState('Van Gieson highlights portal/septal fibrosis consistent with category above.')
+  const [favouredDiagnosis, setFavouredDiagnosis] = useState('')
 
   const [interpretation, setInterpretation] = useState('')
   const [singleLineSummary, setSingleLineSummary] = useState('')
@@ -46,8 +46,62 @@ export default function App() {
   const [report, setReport] = useState('')
   const [busy, setBusy] = useState(false)
 
+
+  const portalTractNumber = Number.parseInt(portalTracts, 10)
+  const adequacyComment = Number.isFinite(portalTractNumber)
+    ? portalTractNumber < 6
+      ? 'Limited sample: fewer than 6 portal tracts; confident assessment of diffuse medical liver disease may be unreliable.'
+      : portalTractNumber < 11
+        ? 'Borderline sample: 6–10 portal tracts; RCPath-associated literature notes this may compromise assessment, although at least 6 portal tracts is often considered sufficient.'
+        : 'Adequate portal tract sampling for diffuse medical liver disease assessment.'
+    : 'Enter a portal tract count to generate an adequacy prompt.'
+
+  const contextPrompts = [
+    portalInflammation === 'Marked' || interfaceHepatitis === 'Present' ? 'Marked portal/interface activity: consider autoimmune hepatitis, drug-induced liver injury, viral hepatitis, and immune-mediated injury; check plasma cells, rosettes/emperipolesis, eosinophils, viral inclusions, and serology/IgG.' : '',
+    lobularInjury === 'Marked' ? 'Marked lobular injury: look for confluent/bridging necrosis, acidophil bodies, Kupffer cell activation, endothelialitis, and features supporting acute viral, drug/toxin, or autoimmune hepatitis.' : '',
+    cholestasis === 'Present' || /duct|ck7|bile|cholang/i.test(biliaryFeatures) ? 'Biliary/cholestatic clues: assess duct injury/loss, ductular reaction, cholangitis, copper-associated protein, CK7 pattern, and correlation with AMA/MRCP/drug history.' : '',
+    /central|vein|outflow|congestion/i.test(vascularFeatures) ? 'Vascular clues: review central venulitis, sinusoidal dilatation/congestion, outflow obstruction, nodular regenerative change, and relevant cardiac/vascular history.' : '',
+    steatosisGrade !== 'None' || ballooning === 'Present' ? 'Fatty liver clues: quantify steatosis, ballooning, Mallory-Denk bodies, perisinusoidal fibrosis, and metabolic/alcohol risk factors.' : '',
+    favouredDiagnosis ? `If morphology supports it, the conclusion will be steered toward: ${favouredDiagnosis}.` : 'Optionally enter a favoured diagnosis below to have it reflected in the conclusion.'
+  ].filter(Boolean)
+
   function buildDraft() {
-    return `Liver Core Biopsy (non-lesional assessment)\n\nClinical & Specimen\n- Clinical history / indication: ${clinicalHistory || 'Not provided.'}\n- Number of cores: ${cores || 'Not provided'}\n- Number of portal tracts: ${portalTracts || 'Not provided'}\n- Comparison with previous biopsy: ${comparison || 'Not provided.'}\n\nArchitecture & Fibrosis\n- Category: ${fibrosisCategory}\n- Stage: ${fibrosisStage || 'Not specified'}\n- Reticulin architecture: ${reticulinArchitecture || 'Not provided.'}\n- Van Gieson / fibrosis note: ${vanGiesonNote || 'Not provided.'}\n\nPortal & Lobular Features\n- Portal inflammation: ${portalInflammation}\n- Interface hepatitis: ${interfaceHepatitis}\n- Lobular injury: ${lobularInjury}\n- Cholestasis: ${cholestasis}\n- Steatosis grade: ${steatosisGrade}\n- Steatosis %: ${steatosisPercent || 'Not specified'}\n- Ballooning (NAS): ${ballooning}\n- Lobular inflammation (NAS): ${lobularInflammationNas}\n- Biliary features: ${biliaryFeatures || 'None stated'}\n- Vascular features: ${vascularFeatures || 'None stated'}\n\nSpecial stains (comments only)\n- A1AT: ${a1atComment || 'Not provided.'}\n- Copper (Victoria Blue): ${copperComment || 'Not provided.'}\n- Iron (Perls): ${ironComment || 'Not provided.'}\n- Reticulin: ${reticulinComment || 'Not provided.'}\n- Van Gieson / fibrosis: ${fibrosisComment || 'Not provided.'}\n\nConclusion / Comment\n- Interpretation: ${interpretation || 'Not provided.'}\n- Single-line summary: ${singleLineSummary || 'Not provided.'}`
+    return `Liver Core Biopsy (non-lesional assessment)
+
+Clinical & Specimen
+- Clinical history / indication: ${clinicalHistory || 'Not provided.'}
+- Number of cores: ${cores || 'Not provided'}
+- Number of portal tracts: ${portalTracts || 'Not provided'}
+- Adequacy prompt: ${adequacyComment}
+- Comparison with previous biopsy: ${comparison || 'Not provided.'}
+
+Architecture & Fibrosis
+- Category: ${fibrosisCategory}
+- Stage: ${fibrosisStage || 'Not specified'}
+- Reticulin architecture: ${reticulinArchitecture || 'Not provided.'}
+- Van Gieson / fibrosis note: ${vanGiesonNote || 'Not provided.'}
+
+Portal & Lobular Features
+- Portal inflammation: ${portalInflammation}
+- Interface hepatitis: ${interfaceHepatitis}
+- Lobular injury: ${lobularInjury}
+- Cholestasis: ${cholestasis}
+- Steatosis grade: ${steatosisGrade}
+- Steatosis %: ${steatosisPercent || 'Not specified'}
+- Ballooning (NAS): ${ballooning}
+- Lobular inflammation (NAS): ${lobularInflammationNas}
+- Biliary features: ${biliaryFeatures || 'None stated'}
+- Vascular features: ${vascularFeatures || 'None stated'}
+
+Special stains (comments only)
+- A1AT: ${a1atComment || 'Not provided.'}
+- Copper (Victoria Blue): ${copperComment || 'Not provided.'}
+- Iron (Perls): ${ironComment || 'Not provided.'}
+
+Conclusion / Comment
+- Favoured diagnosis to include in conclusion: ${favouredDiagnosis || 'Not selected'}
+- Interpretation: ${interpretation || 'Not provided.'}
+- Single-line summary: ${singleLineSummary || 'Not provided.'}`
   }
 
   function buildPrompt() {
@@ -60,7 +114,7 @@ export default function App() {
 Rewrite the draft into a polished, descriptive report in full sentences (plain text, no markdown), while preserving all factual detail and uncertainty.
 
 Output structure:
-1) Clinical & Specimen
+1) Specimen adequacy
 2) Architecture & Fibrosis
 3) Portal & Lobular Features
 4) Special stains
@@ -70,8 +124,10 @@ Output structure:
 
 Rules:
 - Keep the report clinically safe: do not invent findings, grades, or patient data.
-- Explicitly state when information is not provided.
-- Keep wording professional and concise, but more narrative than a checklist.
+- Do not include the clinical history as a standalone report section; use it only to inform the Conclusion/Comment when instructed.
+- Include an adequacy statement using portal tract count: RCPath guidance requires reports to include portal tract count; fewer than 6 portal tracts should be described as limited/inadequate for confident diffuse medical liver disease assessment, and 6-10 portal tracts may compromise assessment compared with an optimal sample.
+- Explicitly state when information is not provided, but avoid repetitive formulaic phrases when a finding is clearly absent.
+- Keep wording professional, concise, and context-aware, with varied narrative phrasing rather than a checklist.
 - In "Conclusion", provide an integrated diagnostic-style summary.
 - In "Comment", provide short correlation advice and, if appropriate, progression/stability context.
 - ${historyInstruction}
@@ -144,18 +200,29 @@ ${buildDraft()}`
         </div>
       </section>
 
+      <section className="card context-panel">
+        <h2>Clinical context assistant (not copied into report)</h2>
+        <p><strong>Clinical history:</strong> {clinicalHistory || 'No clinical history entered yet.'}</p>
+        <p><strong>Prior biopsy comparison:</strong> {comparison || 'No comparison entered.'}</p>
+        <p><strong>Adequacy:</strong> {adequacyComment}</p>
+        <p className="helper">RCPath tissue pathway guidance says medical liver biopsy reports should include portal tract count; published RCPath audit discussion notes fewer than 11 portal tracts may compromise diagnosis, while at least 6 portal tracts should usually be sufficient.</p>
+        <ul>
+          {contextPrompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
+        </ul>
+      </section>
+
       <section className="card">
         <h2>Architecture & Fibrosis</h2>
         <div className="grid two-col">
           <label>
             Category
             <select value={fibrosisCategory} onChange={(e) => setFibrosisCategory(e.target.value as FibrosisCategory)}>
-              {(['No fibrosis / equivocal', 'Portal fibrosis only', 'Portal + periportal fibrosis', 'Bridging fibrosis', 'Cirrhosis'] as FibrosisCategory[]).map((v) => <option key={v}>{v}</option>)}
+              {(['No fibrosis', 'Equivocal for fibrosis', 'Portal fibrosis only', 'Portal + periportal fibrosis', 'Bridging fibrosis', 'Cirrhosis'] as FibrosisCategory[]).map((v) => <option key={v}>{v}</option>)}
             </select>
           </label>
           <label>
             Stage (optional)
-            <input placeholder="Ishak 2/6, METAVIR F2" value={fibrosisStage} onChange={(e) => setFibrosisStage(e.target.value)} />
+            <input placeholder="Optional, e.g. Ishak 2/6, METAVIR F2" value={fibrosisStage} onChange={(e) => setFibrosisStage(e.target.value)} />
           </label>
           <label>
             Reticulin architecture
@@ -253,14 +320,7 @@ ${buildDraft()}`
             Iron (Perls)
             <textarea rows={3} value={ironComment} onChange={(e) => setIronComment(e.target.value)} />
           </label>
-          <label>
-            Reticulin
-            <textarea rows={3} value={reticulinComment} onChange={(e) => setReticulinComment(e.target.value)} />
-          </label>
-          <label className="span-2">
-            Van Gieson / fibrosis
-            <textarea rows={3} value={fibrosisComment} onChange={(e) => setFibrosisComment(e.target.value)} />
-          </label>
+          <p className="helper span-2">Reticulin architecture and Van Gieson/fibrosis comments are entered once in Architecture & Fibrosis to avoid repetition in the generated report.</p>
         </div>
       </section>
 
@@ -270,6 +330,10 @@ ${buildDraft()}`
           <label>
             Interpretation (free text)
             <textarea rows={3} placeholder="In the stated clinical context, the appearances favour …; correlate with …" value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
+          </label>
+          <label>
+            Favoured diagnosis (optional; added to conclusion)
+            <input placeholder="e.g. autoimmune hepatitis, drug-induced liver injury, acute hepatitis" value={favouredDiagnosis} onChange={(e) => setFavouredDiagnosis(e.target.value)} />
           </label>
           <label>
             Single-line summary
