@@ -143,3 +143,91 @@ button:disabled {
   .span-3 { grid-column: span 1; }
   .actions { flex-direction: column; align-items: stretch; }
 }
+
+.helper {
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.context-panel {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.context-panel p {
+  margin: 0 0 0.55rem;
+  color: #1e293b;
+}
+
+.context-panel ul {
+  margin: 0.6rem 0 0;
+  padding-left: 1.25rem;
+  color: #1e3a8a;
+}
+
+.context-panel li + li {
+  margin-top: 0.45rem;
+}
+
+.checkbox-group {
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+  background: #ffffff;
+}
+
+.checkbox-group legend {
+  padding: 0 0.35rem;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.checkbox-row.compact {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.feature-checklist,
+.context-diagnoses {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feature-checklist legend,
+.context-diagnoses legend {
+  grid-column: 1 / -1;
+}
+
+.context-diagnoses {
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 700px) {
+  .feature-checklist,
+  .context-diagnoses {
+    grid-template-columns: 1fr;
+  }
+}
+
+.context-output {
+  margin: 0.85rem 0;
+  border-left: 4px solid #93c5fd;
+  background: #eff6ff;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+}
+
+.context-output p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.report-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}

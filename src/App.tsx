@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import './styles.css'
 
 type FibrosisCategory =
-  | 'No fibrosis / equivocal'
+  | 'No fibrosis'
+  | 'Equivocal for fibrosis'
   | 'Portal fibrosis only'
   | 'Portal + periportal fibrosis'
   | 'Bridging fibrosis'
@@ -11,6 +12,12 @@ type FibrosisCategory =
 type Severity = 'None' | 'Mild' | 'Moderate' | 'Marked'
 type Presence = 'Absent' | 'Present'
 
+const portalInfiltrateOptions = ['Lymphocyte-rich', 'Plasma cell-rich', 'Neutrophil-rich', 'Eosinophil-rich', 'Mixed inflammatory infiltrate', 'Granulomatous component']
+const lobularInjuryOptions = ['Spotty necroinflammation', 'Acidophil bodies', 'Confluent necrosis', 'Bridging necrosis', 'Kupffer cell activation', 'Hepatocyte rosettes', 'Viral cytopathic change']
+const biliaryFeatureOptions = ['Duct injury', 'Duct loss', 'Ductular reaction', 'Cholangitis-like activity', 'Bile plugs', 'CK7 periportal/metaplastic hepatocyte pattern']
+const vascularFeatureOptions = ['Central venulitis', 'Sinusoidal dilatation', 'Congestion', 'Endothelialitis', 'Outflow obstruction pattern', 'Nodular regenerative hyperplasia-like change']
+type DiagnosticOption = { id: string; text: string }
+
 export default function App() {
   const [clinicalHistory, setClinicalHistory] = useState('')
   const [cores, setCores] = useState('')
@@ -18,36 +25,109 @@ export default function App() {
   const [comparison, setComparison] = useState('')
   const [useHistoryForConclusion, setUseHistoryForConclusion] = useState(true)
 
-  const [fibrosisCategory, setFibrosisCategory] = useState<FibrosisCategory>('No fibrosis / equivocal')
-  const [fibrosisStage, setFibrosisStage] = useState('Ishak 2/6, METAVIR F2')
+  const [fibrosisCategory, setFibrosisCategory] = useState<FibrosisCategory>('No fibrosis')
+  const [fibrosisStage, setFibrosisStage] = useState('')
   const [reticulinArchitecture, setReticulinArchitecture] = useState('Preserved hepatic plates and central-portal relationships.')
   const [vanGiesonNote, setVanGiesonNote] = useState('Van Gieson highlights portal/septal fibrosis consistent with category above.')
 
   const [portalInflammation, setPortalInflammation] = useState<Severity>('Mild')
+  const [portalInfiltrateNature, setPortalInfiltrateNature] = useState<string[]>([])
   const [interfaceHepatitis, setInterfaceHepatitis] = useState<Presence>('Absent')
   const [lobularInjury, setLobularInjury] = useState('None')
+  const [lobularInjuryNature, setLobularInjuryNature] = useState<string[]>([])
   const [cholestasis, setCholestasis] = useState<Presence>('Absent')
   const [steatosisGrade, setSteatosisGrade] = useState('None')
   const [steatosisPercent, setSteatosisPercent] = useState('')
   const [ballooning, setBallooning] = useState<Presence>('Absent')
   const [lobularInflammationNas, setLobularInflammationNas] = useState('None')
+  const [biliaryFeatureChecks, setBiliaryFeatureChecks] = useState<string[]>([])
   const [biliaryFeatures, setBiliaryFeatures] = useState('')
+  const [vascularFeatureChecks, setVascularFeatureChecks] = useState<string[]>([])
   const [vascularFeatures, setVascularFeatures] = useState('')
 
   const [a1atComment, setA1atComment] = useState('No cytoplasmic globules suggestive of A1AT accumulation.')
   const [copperComment, setCopperComment] = useState('No convincing copper-binding protein accumulation.')
   const [ironComment, setIronComment] = useState('Perls: no significant iron deposition.')
-  const [reticulinComment, setReticulinComment] = useState('Reticulin delineates hepatic plates; architecture as above.')
-  const [fibrosisComment, setFibrosisComment] = useState('Van Gieson highlights portal/septal fibrosis consistent with category above.')
+  const [clinicalContextText, setClinicalContextText] = useState('')
+  const [diagnosticOptions, setDiagnosticOptions] = useState<DiagnosticOption[]>([])
+  const [selectedDiagnosticIds, setSelectedDiagnosticIds] = useState<string[]>([])
 
   const [interpretation, setInterpretation] = useState('')
-  const [singleLineSummary, setSingleLineSummary] = useState('')
 
   const [report, setReport] = useState('')
   const [busy, setBusy] = useState(false)
 
+  function toggleValue(value: string, values: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) {
+    setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])
+  }
+
+  const selectedDiagnosticSummaries = diagnosticOptions.filter((option) => selectedDiagnosticIds.includes(option.id)).map((option) => option.text)
+
+  function formatReportWithSelectedSummaries(generatedReport: string) {
+    if (selectedDiagnosticSummaries.length === 0) return generatedReport
+
+    return `${generatedReport.trim()}\n\nSingle-line diagnostic summary\n${selectedDiagnosticSummaries.map((summary) => `- Possible diagnosis: ${summary}`).join('\n')}`
+  }
+
+  const displayedReport = formatReportWithSelectedSummaries(report)
+
+  const portalTractNumber = Number.parseInt(portalTracts, 10)
+  const adequacyComment = Number.isFinite(portalTractNumber)
+    ? portalTractNumber < 6
+      ? 'Limited sample: fewer than 6 portal tracts; confident assessment of diffuse medical liver disease may be unreliable.'
+      : portalTractNumber < 11
+        ? 'Borderline sample: 6–10 portal tracts; RCPath-associated literature notes this may compromise assessment, although at least 6 portal tracts is often considered sufficient.'
+        : 'Adequate portal tract sampling for diffuse medical liver disease assessment.'
+    : 'Enter a portal tract count to generate an adequacy prompt.'
+
+  const contextPrompts = [
+    portalInflammation === 'Marked' || interfaceHepatitis === 'Present' ? 'Marked portal/interface activity: consider autoimmune hepatitis, drug-induced liver injury, viral hepatitis, and immune-mediated injury; check plasma cells, rosettes/emperipolesis, eosinophils, viral inclusions, and serology/IgG.' : '',
+    lobularInjury === 'Marked' ? 'Marked lobular injury: look for confluent/bridging necrosis, acidophil bodies, Kupffer cell activation, endothelialitis, and features supporting acute viral, drug/toxin, or autoimmune hepatitis.' : '',
+    cholestasis === 'Present' || biliaryFeatureChecks.length > 0 || /duct|ck7|bile|cholang/i.test(biliaryFeatures) ? 'Biliary/cholestatic clues: assess duct injury/loss, ductular reaction, cholangitis, copper-associated protein, CK7 pattern, and correlation with AMA/MRCP/drug history.' : '',
+    vascularFeatureChecks.length > 0 || /central|vein|outflow|congestion/i.test(vascularFeatures) ? 'Vascular clues: review central venulitis, sinusoidal dilatation/congestion, outflow obstruction, nodular regenerative change, and relevant cardiac/vascular history.' : '',
+    steatosisGrade !== 'None' || ballooning === 'Present' ? 'Fatty liver clues: quantify steatosis, ballooning, Mallory-Denk bodies, perisinusoidal fibrosis, and metabolic/alcohol risk factors.' : ''
+  ].filter(Boolean)
+
   function buildDraft() {
-    return `Liver Core Biopsy (non-lesional assessment)\n\nClinical & Specimen\n- Clinical history / indication: ${clinicalHistory || 'Not provided.'}\n- Number of cores: ${cores || 'Not provided'}\n- Number of portal tracts: ${portalTracts || 'Not provided'}\n- Comparison with previous biopsy: ${comparison || 'Not provided.'}\n\nArchitecture & Fibrosis\n- Category: ${fibrosisCategory}\n- Stage: ${fibrosisStage || 'Not specified'}\n- Reticulin architecture: ${reticulinArchitecture || 'Not provided.'}\n- Van Gieson / fibrosis note: ${vanGiesonNote || 'Not provided.'}\n\nPortal & Lobular Features\n- Portal inflammation: ${portalInflammation}\n- Interface hepatitis: ${interfaceHepatitis}\n- Lobular injury: ${lobularInjury}\n- Cholestasis: ${cholestasis}\n- Steatosis grade: ${steatosisGrade}\n- Steatosis %: ${steatosisPercent || 'Not specified'}\n- Ballooning (NAS): ${ballooning}\n- Lobular inflammation (NAS): ${lobularInflammationNas}\n- Biliary features: ${biliaryFeatures || 'None stated'}\n- Vascular features: ${vascularFeatures || 'None stated'}\n\nSpecial stains (comments only)\n- A1AT: ${a1atComment || 'Not provided.'}\n- Copper (Victoria Blue): ${copperComment || 'Not provided.'}\n- Iron (Perls): ${ironComment || 'Not provided.'}\n- Reticulin: ${reticulinComment || 'Not provided.'}\n- Van Gieson / fibrosis: ${fibrosisComment || 'Not provided.'}\n\nConclusion / Comment\n- Interpretation: ${interpretation || 'Not provided.'}\n- Single-line summary: ${singleLineSummary || 'Not provided.'}`
+    return `Liver Core Biopsy (non-lesional assessment)
+
+Clinical & Specimen
+- Clinical history / indication: ${clinicalHistory || 'Not provided.'}
+- Number of cores: ${cores || 'Not provided'}
+- Number of portal tracts: ${portalTracts || 'Not provided'}
+- Adequacy prompt: ${adequacyComment}
+- Comparison with previous biopsy: ${comparison || 'Not provided.'}
+
+Architecture & Fibrosis
+- Category: ${fibrosisCategory}
+- Stage: ${fibrosisStage || 'Not specified'}
+- Reticulin architecture: ${reticulinArchitecture || 'Not provided.'}
+- Van Gieson / fibrosis note: ${vanGiesonNote || 'Not provided.'}
+
+Portal & Lobular Features
+- Portal inflammation: ${portalInflammation}
+- Portal infiltrate nature: ${portalInfiltrateNature.join('; ') || 'Not specified'}
+- Interface hepatitis: ${interfaceHepatitis}
+- Lobular injury: ${lobularInjury}
+- Lobular injury features: ${lobularInjuryNature.join('; ') || 'Not specified'}
+- Cholestasis: ${cholestasis}
+- Steatosis grade: ${steatosisGrade}
+- Steatosis %: ${steatosisPercent || 'Not specified'}
+- Ballooning (NAS): ${ballooning}
+- Lobular inflammation (NAS): ${lobularInflammationNas}
+- Biliary checklist features: ${biliaryFeatureChecks.join('; ') || 'None selected'}
+- Biliary features: ${biliaryFeatures || 'None stated'}
+- Vascular checklist features: ${vascularFeatureChecks.join('; ') || 'None selected'}
+- Vascular features: ${vascularFeatures || 'None stated'}
+
+Special stains (comments only)
+- A1AT: ${a1atComment || 'Not provided.'}
+- Copper (Victoria Blue): ${copperComment || 'Not provided.'}
+- Iron (Perls): ${ironComment || 'Not provided.'}
+
+Conclusion / Comment
+- Free-text conclusion/comment to integrate: ${interpretation || 'Not provided.'}
+- Selected single-line diagnostic summaries to append after the descriptive report: ${selectedDiagnosticSummaries.join(' | ') || 'None selected'}`
   }
 
   function buildPrompt() {
@@ -59,25 +139,76 @@ export default function App() {
 
 Rewrite the draft into a polished, descriptive report in full sentences (plain text, no markdown), while preserving all factual detail and uncertainty.
 
-Output structure:
-1) Clinical & Specimen
-2) Architecture & Fibrosis
-3) Portal & Lobular Features
-4) Special stains
-5) Conclusion
-6) Comment
-7) Key points (3 concise bullets)
+Output format:
+- Do not number sections.
+- Write as polished paragraphs with short unnumbered headings only if helpful.
+- Do not produce bullet-point key points unless they are explicitly present in the draft.
 
 Rules:
 - Keep the report clinically safe: do not invent findings, grades, or patient data.
-- Explicitly state when information is not provided.
-- Keep wording professional and concise, but more narrative than a checklist.
-- In "Conclusion", provide an integrated diagnostic-style summary.
-- In "Comment", provide short correlation advice and, if appropriate, progression/stability context.
+- Do not include the clinical history as a standalone report section; use it only to inform the Conclusion/Comment when instructed.
+- Include an adequacy statement using portal tract count: RCPath guidance requires reports to include portal tract count; fewer than 6 portal tracts should be described as limited/inadequate for confident diffuse medical liver disease assessment, and 6-10 portal tracts may compromise assessment compared with an optimal sample.
+- Explicitly state when information is not provided, but avoid repetitive formulaic phrases when a finding is clearly absent.
+- Keep wording professional, concise, and context-aware, with varied narrative phrasing rather than a checklist.
+- Integrate the free-text conclusion/comment into the final diagnostic paragraph where supported by the morphology.
+- After the descriptive report and final diagnostic paragraph, append any selected single-line diagnostic summaries exactly as concise standalone lines, unless unsupported by the described morphology.
+- Provide short correlation advice and, if appropriate, progression/stability context without making the report feel templated.
 - ${historyInstruction}
 
 Draft source data:
 ${buildDraft()}`
+  }
+
+  function parseClinicalContextResponse(raw: string) {
+    const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim()
+    const jsonStart = cleaned.indexOf('{')
+    const jsonEnd = cleaned.lastIndexOf('}')
+    const jsonText = jsonStart >= 0 && jsonEnd > jsonStart ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned
+
+    try {
+      const parsed = JSON.parse(jsonText) as { context?: string; diagnoses?: string[] }
+      setClinicalContextText(parsed.context || raw)
+      setDiagnosticOptions((parsed.diagnoses || []).map((text, index) => ({ id: `${Date.now()}-${index}`, text })))
+      setSelectedDiagnosticIds([])
+    } catch {
+      setClinicalContextText(raw)
+      setDiagnosticOptions([])
+      setSelectedDiagnosticIds([])
+    }
+  }
+
+  async function generateClinicalContext() {
+    const prompt = `You are a consultant hepatic pathologist helping another pathologist review a non-lesional liver biopsy.
+
+Using the case data below, produce case-specific support for the on-screen clinical context assistant only. Do not write the formal report.
+
+Return strict JSON with two keys:
+- "context": a concise paragraph or two commenting on the pattern, what to look for next, and what clinical/serological correlation would help.
+- "diagnoses": an array of 3 to 6 concise possible diagnostic entities only, not feature descriptions or further comments.
+
+Keep diagnoses conditional and safe where appropriate; do not invent findings.
+
+Case data:
+${buildDraft()}`
+
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setClinicalContextText(`Clinical context service error: ${data?.error ?? 'Unknown error'}`)
+        setDiagnosticOptions([])
+      } else {
+        parseClinicalContextResponse(data?.report ?? 'No clinical context generated.')
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      setClinicalContextText(`Error generating clinical context: ${message}`)
+      setDiagnosticOptions([])
+    }
   }
 
   async function generateReport() {
@@ -100,12 +231,14 @@ ${buildDraft()}`
       const message = error instanceof Error ? error.message : 'Unknown error'
       setReport(`Error generating report: ${message}`)
     } finally {
+      await generateClinicalContext()
       setBusy(false)
     }
   }
 
+
   function copyReport() {
-    navigator.clipboard.writeText(report)
+    navigator.clipboard.writeText(displayedReport)
   }
 
   return (
@@ -150,12 +283,12 @@ ${buildDraft()}`
           <label>
             Category
             <select value={fibrosisCategory} onChange={(e) => setFibrosisCategory(e.target.value as FibrosisCategory)}>
-              {(['No fibrosis / equivocal', 'Portal fibrosis only', 'Portal + periportal fibrosis', 'Bridging fibrosis', 'Cirrhosis'] as FibrosisCategory[]).map((v) => <option key={v}>{v}</option>)}
+              {(['No fibrosis', 'Equivocal for fibrosis', 'Portal fibrosis only', 'Portal + periportal fibrosis', 'Bridging fibrosis', 'Cirrhosis'] as FibrosisCategory[]).map((v) => <option key={v}>{v}</option>)}
             </select>
           </label>
           <label>
             Stage (optional)
-            <input placeholder="Ishak 2/6, METAVIR F2" value={fibrosisStage} onChange={(e) => setFibrosisStage(e.target.value)} />
+            <input placeholder="Optional, e.g. Ishak 2/6, METAVIR F2" value={fibrosisStage} onChange={(e) => setFibrosisStage(e.target.value)} />
           </label>
           <label>
             Reticulin architecture
@@ -177,6 +310,15 @@ ${buildDraft()}`
               {(['None', 'Mild', 'Moderate', 'Marked'] as Severity[]).map((v) => <option key={v}>{v}</option>)}
             </select>
           </label>
+          <fieldset className="checkbox-group feature-checklist span-3">
+            <legend>Portal infiltrate nature</legend>
+            {portalInfiltrateOptions.map((option) => (
+              <label className="checkbox-row compact" key={option}>
+                <input type="checkbox" checked={portalInfiltrateNature.includes(option)} onChange={() => toggleValue(option, portalInfiltrateNature, setPortalInfiltrateNature)} />
+                {option}
+              </label>
+            ))}
+          </fieldset>
           <label>
             Interface hepatitis
             <select value={interfaceHepatitis} onChange={(e) => setInterfaceHepatitis(e.target.value as Presence)}>
@@ -192,6 +334,15 @@ ${buildDraft()}`
               <option>Marked</option>
             </select>
           </label>
+          <fieldset className="checkbox-group feature-checklist span-3">
+            <legend>Lobular injury features</legend>
+            {lobularInjuryOptions.map((option) => (
+              <label className="checkbox-row compact" key={option}>
+                <input type="checkbox" checked={lobularInjuryNature.includes(option)} onChange={() => toggleValue(option, lobularInjuryNature, setLobularInjuryNature)} />
+                {option}
+              </label>
+            ))}
+          </fieldset>
           <label>
             Cholestasis
             <select value={cholestasis} onChange={(e) => setCholestasis(e.target.value as Presence)}>
@@ -227,13 +378,31 @@ ${buildDraft()}`
             </select>
           </label>
           <div></div>
+          <fieldset className="checkbox-group feature-checklist span-3">
+            <legend>Biliary features</legend>
+            {biliaryFeatureOptions.map((option) => (
+              <label className="checkbox-row compact" key={option}>
+                <input type="checkbox" checked={biliaryFeatureChecks.includes(option)} onChange={() => toggleValue(option, biliaryFeatureChecks, setBiliaryFeatureChecks)} />
+                {option}
+              </label>
+            ))}
+          </fieldset>
+          <fieldset className="checkbox-group feature-checklist span-3">
+            <legend>Vascular / central venous features</legend>
+            {vascularFeatureOptions.map((option) => (
+              <label className="checkbox-row compact" key={option}>
+                <input type="checkbox" checked={vascularFeatureChecks.includes(option)} onChange={() => toggleValue(option, vascularFeatureChecks, setVascularFeatureChecks)} />
+                {option}
+              </label>
+            ))}
+          </fieldset>
           <label className="span-2">
             Biliary features (free text)
-            <textarea rows={2} placeholder="Ductular reaction, bile plugs, cholangitis-like changes" value={biliaryFeatures} onChange={(e) => setBiliaryFeatures(e.target.value)} />
+            <textarea rows={2} placeholder="Additional detail on ductular reaction, bile plugs, cholangitis-like changes" value={biliaryFeatures} onChange={(e) => setBiliaryFeatures(e.target.value)} />
           </label>
           <label>
             Vascular features (free text)
-            <textarea rows={2} placeholder="Central vein congestion/outflow, NRH-like change" value={vascularFeatures} onChange={(e) => setVascularFeatures(e.target.value)} />
+            <textarea rows={2} placeholder="Additional detail on central vein congestion/outflow, NRH-like change" value={vascularFeatures} onChange={(e) => setVascularFeatures(e.target.value)} />
           </label>
         </div>
       </section>
@@ -253,39 +422,53 @@ ${buildDraft()}`
             Iron (Perls)
             <textarea rows={3} value={ironComment} onChange={(e) => setIronComment(e.target.value)} />
           </label>
-          <label>
-            Reticulin
-            <textarea rows={3} value={reticulinComment} onChange={(e) => setReticulinComment(e.target.value)} />
-          </label>
-          <label className="span-2">
-            Van Gieson / fibrosis
-            <textarea rows={3} value={fibrosisComment} onChange={(e) => setFibrosisComment(e.target.value)} />
-          </label>
+          <p className="helper span-2">Reticulin architecture and Van Gieson/fibrosis comments are entered once in Architecture & Fibrosis to avoid repetition in the generated report.</p>
         </div>
       </section>
 
       <section className="card">
         <h2>Conclusion / Comment</h2>
-        <div className="grid two-col">
-          <label>
-            Interpretation (free text)
-            <textarea rows={3} placeholder="In the stated clinical context, the appearances favour …; correlate with …" value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
-          </label>
-          <label>
-            Single-line summary
-            <textarea rows={3} placeholder="Chronic hepatitis pattern with mild activity and no advanced fibrosis." value={singleLineSummary} onChange={(e) => setSingleLineSummary(e.target.value)} />
-          </label>
-        </div>
+        <label>
+          Free text to integrate
+          <textarea rows={4} placeholder="In the stated clinical context, the appearances favour …; correlate with …" value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
+        </label>
       </section>
 
       <section className="card actions">
-        <button onClick={generateReport} disabled={busy}>{busy ? 'Generating...' : 'Generate LLM report'}</button>
-        <button className="ghost" onClick={copyReport} disabled={!report}>Copy report</button>
+        <button onClick={generateReport} disabled={busy}>{busy ? 'Generating...' : 'Generate LLM report and clinical context'}</button>
+      </section>
+
+      <section className="card context-panel">
+        <h2>Clinical context assistant (not copied into report)</h2>
+        <p><strong>Clinical history:</strong> {clinicalHistory || 'No clinical history entered yet.'}</p>
+        <p><strong>Prior biopsy comparison:</strong> {comparison || 'No comparison entered.'}</p>
+        <p><strong>Adequacy:</strong> {adequacyComment}</p>
+        <p className="helper">RCPath tissue pathway guidance says medical liver biopsy reports should include portal tract count; published RCPath audit discussion notes fewer than 11 portal tracts may compromise diagnosis, while at least 6 portal tracts should usually be sufficient.</p>
+        <div className="context-output">
+          <p>{clinicalContextText || 'Generate clinical context to get case-specific comments, review prompts and possible diagnoses from the LLM.'}</p>
+        </div>
+        <fieldset className="checkbox-group context-diagnoses">
+          <legend>LLM-suggested possible diagnoses to add to the report summary</legend>
+          {diagnosticOptions.length === 0 ? (
+            <p className="helper">No generated diagnoses yet.</p>
+          ) : diagnosticOptions.map((option) => (
+            <label className="checkbox-row compact" key={option.id}>
+              <input type="checkbox" checked={selectedDiagnosticIds.includes(option.id)} onChange={() => toggleValue(option.id, selectedDiagnosticIds, setSelectedDiagnosticIds)} />
+              {option.text}
+            </label>
+          ))}
+        </fieldset>
+        <ul>
+          {contextPrompts.length === 0 ? <li>Generate LLM clinical context to see case-specific review prompts.</li> : contextPrompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
+        </ul>
       </section>
 
       <section className="card">
         <h2>Report</h2>
-        <textarea className="report" rows={16} value={report} readOnly />
+        <textarea className="report" rows={16} value={displayedReport} readOnly />
+        <div className="report-actions">
+          <button className="ghost" onClick={copyReport} disabled={!displayedReport}>Copy report</button>
+        </div>
       </section>
     </main>
   )
