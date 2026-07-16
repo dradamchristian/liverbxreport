@@ -16,7 +16,7 @@ const portalInfiltrateOptions = ['Lymphocyte-rich', 'Plasma cell-rich', 'Neutrop
 const lobularInjuryOptions = ['Spotty necroinflammation', 'Acidophil bodies', 'Confluent necrosis', 'Bridging necrosis', 'Kupffer cell activation', 'Hepatocyte rosettes', 'Viral cytopathic change']
 const biliaryFeatureOptions = ['Duct injury', 'Duct loss', 'Ductular reaction', 'Cholangitis-like activity', 'Bile plugs', 'CK7 periportal/metaplastic hepatocyte pattern']
 const vascularFeatureOptions = ['Central venulitis', 'Sinusoidal dilatation', 'Congestion', 'Endothelialitis', 'Outflow obstruction pattern', 'Nodular regenerative hyperplasia-like change']
-const conclusionPromptOptions = ['Features support autoimmune hepatitis if serology/IgG are compatible', 'Consider drug-induced liver injury after medication/supplement review', 'Exclude viral hepatitis with appropriate serology/PCR', 'Biliary disease less likely if CK7 and bile ducts are unremarkable', 'Consider vascular/outflow contribution if central venous changes persist', 'Correlate fibrosis stage with trichrome/Van Gieson and previous biopsy']
+const diagnosticSummaryOptions = ['Appearances favour autoimmune hepatitis, if serology and IgG are supportive.', 'Drug-induced liver injury remains a key differential; correlate with medication and supplement exposure.', 'Viral hepatitis should be excluded with appropriate serology/PCR.', 'Biliary disease is not favoured if CK7 and bile ducts are unremarkable.', 'A vascular/outflow component should be considered if central venous changes persist.', 'Fibrosis stage should be correlated with Van Gieson/reticulin findings and any previous biopsy.']
 
 export default function App() {
   const [clinicalHistory, setClinicalHistory] = useState('')
@@ -48,10 +48,9 @@ export default function App() {
   const [a1atComment, setA1atComment] = useState('No cytoplasmic globules suggestive of A1AT accumulation.')
   const [copperComment, setCopperComment] = useState('No convincing copper-binding protein accumulation.')
   const [ironComment, setIronComment] = useState('Perls: no significant iron deposition.')
-  const [conclusionPrompts, setConclusionPrompts] = useState<string[]>([])
+  const [diagnosticSummaries, setDiagnosticSummaries] = useState<string[]>([])
 
   const [interpretation, setInterpretation] = useState('')
-  const [singleLineSummary, setSingleLineSummary] = useState('')
 
   const [report, setReport] = useState('')
   const [busy, setBusy] = useState(false)
@@ -75,7 +74,7 @@ export default function App() {
     cholestasis === 'Present' || biliaryFeatureChecks.length > 0 || /duct|ck7|bile|cholang/i.test(biliaryFeatures) ? 'Biliary/cholestatic clues: assess duct injury/loss, ductular reaction, cholangitis, copper-associated protein, CK7 pattern, and correlation with AMA/MRCP/drug history.' : '',
     vascularFeatureChecks.length > 0 || /central|vein|outflow|congestion/i.test(vascularFeatures) ? 'Vascular clues: review central venulitis, sinusoidal dilatation/congestion, outflow obstruction, nodular regenerative change, and relevant cardiac/vascular history.' : '',
     steatosisGrade !== 'None' || ballooning === 'Present' ? 'Fatty liver clues: quantify steatosis, ballooning, Mallory-Denk bodies, perisinusoidal fibrosis, and metabolic/alcohol risk factors.' : '',
-    conclusionPrompts.length > 0 ? `Selected conclusion prompts: ${conclusionPrompts.join('; ')}.` : 'Tick conclusion prompts below to carry selected diagnostic considerations into the generated conclusion/comment.'
+    diagnosticSummaries.length > 0 ? `Selected diagnostic summary lines: ${diagnosticSummaries.join(' ')}` : 'Tick suggested diagnoses or conclusion lines below to add them as single-line summaries at the end of the report.'
   ].filter(Boolean)
 
   function buildDraft() {
@@ -116,9 +115,8 @@ Special stains (comments only)
 - Iron (Perls): ${ironComment || 'Not provided.'}
 
 Conclusion / Comment
-- Selected conclusion prompts to integrate: ${conclusionPrompts.join('; ') || 'None selected'}
 - Free-text conclusion/comment to integrate: ${interpretation || 'Not provided.'}
-- Single-line summary: ${singleLineSummary || 'Not provided.'}`
+- Selected single-line diagnostic summaries to append after the descriptive report: ${diagnosticSummaries.join(' | ') || 'None selected'}`
   }
 
   function buildPrompt() {
@@ -141,7 +139,8 @@ Rules:
 - Include an adequacy statement using portal tract count: RCPath guidance requires reports to include portal tract count; fewer than 6 portal tracts should be described as limited/inadequate for confident diffuse medical liver disease assessment, and 6-10 portal tracts may compromise assessment compared with an optimal sample.
 - Explicitly state when information is not provided, but avoid repetitive formulaic phrases when a finding is clearly absent.
 - Keep wording professional, concise, and context-aware, with varied narrative phrasing rather than a checklist.
-- Integrate the free-text conclusion/comment and selected conclusion prompts into the final diagnostic paragraph where supported by the morphology.
+- Integrate the free-text conclusion/comment into the final diagnostic paragraph where supported by the morphology.
+- After the descriptive report and final diagnostic paragraph, append any selected single-line diagnostic summaries exactly as concise standalone lines, unless unsupported by the described morphology.
 - Provide short correlation advice and, if appropriate, progression/stability context without making the report feel templated.
 - ${historyInstruction}
 
@@ -246,7 +245,7 @@ ${buildDraft()}`
               {(['None', 'Mild', 'Moderate', 'Marked'] as Severity[]).map((v) => <option key={v}>{v}</option>)}
             </select>
           </label>
-          <fieldset className="checkbox-group span-2">
+          <fieldset className="checkbox-group feature-checklist span-3">
             <legend>Portal infiltrate nature</legend>
             {portalInfiltrateOptions.map((option) => (
               <label className="checkbox-row compact" key={option}>
@@ -270,7 +269,7 @@ ${buildDraft()}`
               <option>Marked</option>
             </select>
           </label>
-          <fieldset className="checkbox-group span-2">
+          <fieldset className="checkbox-group feature-checklist span-3">
             <legend>Lobular injury features</legend>
             {lobularInjuryOptions.map((option) => (
               <label className="checkbox-row compact" key={option}>
@@ -314,7 +313,7 @@ ${buildDraft()}`
             </select>
           </label>
           <div></div>
-          <fieldset className="checkbox-group span-3">
+          <fieldset className="checkbox-group feature-checklist span-3">
             <legend>Biliary features</legend>
             {biliaryFeatureOptions.map((option) => (
               <label className="checkbox-row compact" key={option}>
@@ -323,7 +322,7 @@ ${buildDraft()}`
               </label>
             ))}
           </fieldset>
-          <fieldset className="checkbox-group span-3">
+          <fieldset className="checkbox-group feature-checklist span-3">
             <legend>Vascular / central venous features</legend>
             {vascularFeatureOptions.map((option) => (
               <label className="checkbox-row compact" key={option}>
@@ -364,25 +363,10 @@ ${buildDraft()}`
 
       <section className="card">
         <h2>Conclusion / Comment</h2>
-        <div className="grid two-col">
-          <fieldset className="checkbox-group span-2">
-            <legend>Prompts to integrate into conclusion/comment</legend>
-            {conclusionPromptOptions.map((option) => (
-              <label className="checkbox-row compact" key={option}>
-                <input type="checkbox" checked={conclusionPrompts.includes(option)} onChange={() => toggleValue(option, conclusionPrompts, setConclusionPrompts)} />
-                {option}
-              </label>
-            ))}
-          </fieldset>
-          <label className="span-2">
-            Conclusion/comment free text to integrate
-            <textarea rows={4} placeholder="In the stated clinical context, the appearances favour …; correlate with …" value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
-          </label>
-          <label className="span-2">
-            Single-line summary
-            <textarea rows={2} placeholder="Chronic hepatitis pattern with mild activity and no advanced fibrosis." value={singleLineSummary} onChange={(e) => setSingleLineSummary(e.target.value)} />
-          </label>
-        </div>
+        <label>
+          Free text to integrate
+          <textarea rows={4} placeholder="In the stated clinical context, the appearances favour …; correlate with …" value={interpretation} onChange={(e) => setInterpretation(e.target.value)} />
+        </label>
       </section>
 
       <section className="card actions">
@@ -396,6 +380,15 @@ ${buildDraft()}`
         <p><strong>Prior biopsy comparison:</strong> {comparison || 'No comparison entered.'}</p>
         <p><strong>Adequacy:</strong> {adequacyComment}</p>
         <p className="helper">RCPath tissue pathway guidance says medical liver biopsy reports should include portal tract count; published RCPath audit discussion notes fewer than 11 portal tracts may compromise diagnosis, while at least 6 portal tracts should usually be sufficient.</p>
+        <fieldset className="checkbox-group context-diagnoses">
+          <legend>Suggested diagnoses / single-line summaries to add at the end</legend>
+          {diagnosticSummaryOptions.map((option) => (
+            <label className="checkbox-row compact" key={option}>
+              <input type="checkbox" checked={diagnosticSummaries.includes(option)} onChange={() => toggleValue(option, diagnosticSummaries, setDiagnosticSummaries)} />
+              {option}
+            </label>
+          ))}
+        </fieldset>
         <ul>
           {contextPrompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
         </ul>
