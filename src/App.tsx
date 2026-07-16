@@ -56,13 +56,20 @@ export default function App() {
 
   const [report, setReport] = useState('')
   const [busy, setBusy] = useState(false)
-  const [contextBusy, setContextBusy] = useState(false)
 
   function toggleValue(value: string, values: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])
   }
 
   const selectedDiagnosticSummaries = diagnosticOptions.filter((option) => selectedDiagnosticIds.includes(option.id)).map((option) => option.text)
+
+  function formatReportWithSelectedSummaries(generatedReport: string) {
+    if (selectedDiagnosticSummaries.length === 0) return generatedReport
+
+    return `${generatedReport.trim()}\n\nSingle-line diagnostic summary\n${selectedDiagnosticSummaries.map((summary) => `- Possible diagnosis: ${summary}`).join('\n')}`
+  }
+
+  const displayedReport = formatReportWithSelectedSummaries(report)
 
   const portalTractNumber = Number.parseInt(portalTracts, 10)
   const adequacyComment = Number.isFinite(portalTractNumber)
@@ -152,12 +159,6 @@ Draft source data:
 ${buildDraft()}`
   }
 
-  function formatReportWithSelectedSummaries(generatedReport: string) {
-    if (selectedDiagnosticSummaries.length === 0) return generatedReport
-
-    return `${generatedReport.trim()}\n\nSingle-line diagnostic summary\n${selectedDiagnosticSummaries.map((summary) => `- ${summary}`).join('\n')}`
-  }
-
   function parseClinicalContextResponse(raw: string) {
     const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim()
     const jsonStart = cleaned.indexOf('{')
@@ -177,14 +178,13 @@ ${buildDraft()}`
   }
 
   async function generateClinicalContext() {
-    setContextBusy(true)
     const prompt = `You are a consultant hepatic pathologist helping another pathologist review a non-lesional liver biopsy.
 
 Using the case data below, produce case-specific support for the on-screen clinical context assistant only. Do not write the formal report.
 
 Return strict JSON with two keys:
 - "context": a concise paragraph or two commenting on the pattern, what to look for next, and what clinical/serological correlation would help.
-- "diagnoses": an array of 3 to 6 concise possible diagnoses or single-line diagnostic summary statements that the user may choose to add to the report.
+- "diagnoses": an array of 3 to 6 concise possible diagnostic entities only, not feature descriptions or further comments.
 
 Keep diagnoses conditional and safe where appropriate; do not invent findings.
 
@@ -208,8 +208,6 @@ ${buildDraft()}`
       const message = error instanceof Error ? error.message : 'Unknown error'
       setClinicalContextText(`Error generating clinical context: ${message}`)
       setDiagnosticOptions([])
-    } finally {
-      setContextBusy(false)
     }
   }
 
@@ -227,18 +225,20 @@ ${buildDraft()}`
       if (!res.ok) {
         setReport(`Report service error: ${data?.error ?? 'Unknown error'}`)
       } else {
-        setReport(formatReportWithSelectedSummaries(data?.report ?? 'No response from report service.'))
+        setReport(data?.report ?? 'No response from report service.')
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       setReport(`Error generating report: ${message}`)
     } finally {
+      await generateClinicalContext()
       setBusy(false)
     }
   }
 
+
   function copyReport() {
-    navigator.clipboard.writeText(report)
+    navigator.clipboard.writeText(displayedReport)
   }
 
   return (
@@ -435,8 +435,7 @@ ${buildDraft()}`
       </section>
 
       <section className="card actions">
-        <button onClick={generateReport} disabled={busy}>{busy ? 'Generating...' : 'Generate LLM report'}</button>
-        <button className="ghost" onClick={copyReport} disabled={!report}>Copy report</button>
+        <button onClick={generateReport} disabled={busy}>{busy ? 'Generating...' : 'Generate LLM report and clinical context'}</button>
       </section>
 
       <section className="card context-panel">
@@ -445,12 +444,11 @@ ${buildDraft()}`
         <p><strong>Prior biopsy comparison:</strong> {comparison || 'No comparison entered.'}</p>
         <p><strong>Adequacy:</strong> {adequacyComment}</p>
         <p className="helper">RCPath tissue pathway guidance says medical liver biopsy reports should include portal tract count; published RCPath audit discussion notes fewer than 11 portal tracts may compromise diagnosis, while at least 6 portal tracts should usually be sufficient.</p>
-        <button className="ghost" onClick={generateClinicalContext} disabled={contextBusy}>{contextBusy ? 'Generating context...' : 'Generate LLM clinical context'}</button>
         <div className="context-output">
           <p>{clinicalContextText || 'Generate clinical context to get case-specific comments, review prompts and possible diagnoses from the LLM.'}</p>
         </div>
         <fieldset className="checkbox-group context-diagnoses">
-          <legend>LLM-suggested diagnoses / single-line summaries to add to the report</legend>
+          <legend>LLM-suggested possible diagnoses to add to the report summary</legend>
           {diagnosticOptions.length === 0 ? (
             <p className="helper">No generated diagnoses yet.</p>
           ) : diagnosticOptions.map((option) => (
@@ -467,7 +465,10 @@ ${buildDraft()}`
 
       <section className="card">
         <h2>Report</h2>
-        <textarea className="report" rows={16} value={report} readOnly />
+        <textarea className="report" rows={16} value={displayedReport} readOnly />
+        <div className="report-actions">
+          <button className="ghost" onClick={copyReport} disabled={!displayedReport}>Copy report</button>
+        </div>
       </section>
     </main>
   )
