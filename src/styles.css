@@ -170,3 +170,24 @@ button:disabled {
 .context-panel li + li {
   margin-top: 0.45rem;
 }
+
+.checkbox-group {
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+  background: #ffffff;
+}
+
+.checkbox-group legend {
+  padding: 0 0.35rem;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.checkbox-row.compact {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1e293b;
+}
